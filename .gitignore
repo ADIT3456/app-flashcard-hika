@@ -1,0 +1,40 @@
+# Node modules
+node_modules/
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# Native Android Build Artifacts & Temporary Files
+android/build/
+android/app/build/
+android/.gradle/
+android/.cxx/
+android/local.properties
+android/app/.cxx/
+
+# Generated APK & AAB Files
+*.apk
+*.aab
+android/app/build/outputs/
+
+# Environment Variables & Private Files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# OS Generated Files
+.DS_Store
+Thumbs.db
+
+# IDE / Editor Files
+.idea/
+.vscode/
+*.swp
+*.swo
