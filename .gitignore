@@ -33,6 +33,10 @@ android/app/build/outputs/
 .DS_Store
 Thumbs.db
 
+# Extra raw asset folders outside assets/
+/hiragana/
+/katakana/
+
 # IDE / Editor Files
 .idea/
 .vscode/

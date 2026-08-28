@@ -1,5 +1,4 @@
 import gojuonMap from './gojuonMap';
-import svgIndex from '../assets/katakanaIndex';
 
 // Katakana chars in same gojūon order
 const katakanaChars = [
@@ -15,15 +14,12 @@ const katakanaChars = [
   'ワ','ヲ','ン',
 ];
 
-const katakana = gojuonMap.map((entry, i) => {
-  const svgModule = svgIndex[entry.file];
-  return {
-    id: entry.file,
-    char: katakanaChars[i],
-    romaji: entry.romaji,
-    svg: svgModule?.default ?? svgModule,
-  };
-});
-
+const katakana = gojuonMap.map((entry, i) => ({
+  id: entry.file,
+  key: `k_${entry.file}`,
+  type: 'katakana',
+  char: katakanaChars[i],
+  romaji: entry.romaji,
+}));
 
 export default katakana;

@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SessionSetupScreen({ route, navigation }) {
-  const type = route?.params?.type || 'hiragana';
+  const initialType = route?.params?.type || 'hiragana';
+  const [type, setType] = useState(initialType);
   const [mode, setMode] = useState('sequential'); // 'sequential' | 'random'
-
-  const title = type === 'hiragana' ? 'Hiragana' : 'Katakana';
 
   const start = () => {
     navigation.navigate('Flashcard', { type, mode });
@@ -15,71 +14,100 @@ export default function SessionSetupScreen({ route, navigation }) {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{title} Session</Text>
+        <Text style={styles.headerTitle}>Pengaturan Belajar</Text>
       </View>
 
-      <View style={styles.body}>
-        <Text style={styles.label}>Urutan belajar</Text>
-
-        <View style={styles.toggle}>
+      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        <Text style={styles.label}>Pilih Kategori</Text>
+        <View style={styles.row}>
           <TouchableOpacity
-            style={[styles.toggleBtn, mode === 'sequential' && styles.toggleActive]}
-            onPress={() => setMode('sequential')}
+            style={[styles.chip, type === 'hiragana' && styles.chipActive]}
+            onPress={() => setType('hiragana')}
           >
-            <Text style={[styles.toggleText, mode === 'sequential' && styles.toggleTextActive]}>
-              Berurutan
+            <Text style={[styles.chipText, type === 'hiragana' && styles.chipTextActive]}>
+              Hiragana (46)
             </Text>
           </TouchableOpacity>
+
           <TouchableOpacity
-            style={[styles.toggleBtn, mode === 'random' && styles.toggleActive]}
-            onPress={() => setMode('random')}
+            style={[styles.chip, type === 'katakana' && styles.chipActive]}
+            onPress={() => setType('katakana')}
           >
-            <Text style={[styles.toggleText, mode === 'random' && styles.toggleTextActive]}>
-              Acak
+            <Text style={[styles.chipText, type === 'katakana' && styles.chipTextActive]}>
+              Katakana (46)
             </Text>
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.startBtn} onPress={start}>
-          <Text style={styles.startText}>Mulai</Text>
+        <Text style={[styles.label, { marginTop: 24 }]}>Urutan Belajar</Text>
+        <View style={styles.row}>
+          <TouchableOpacity
+            style={[styles.chip, mode === 'sequential' && styles.chipActive]}
+            onPress={() => setMode('sequential')}
+          >
+            <Text style={[styles.chipText, mode === 'sequential' && styles.chipTextActive]}>
+              Berurutan (A-I-U-E-O)
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.chip, mode === 'random' && styles.chipActive]}
+            onPress={() => setMode('random')}
+          >
+            <Text style={[styles.chipText, mode === 'random' && styles.chipTextActive]}>
+              Acak (Shuffle)
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity style={styles.startBtn} onPress={start} activeOpacity={0.85}>
+          <Text style={styles.startText}>Mulai Flashcard 🚀</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f5f7fb' },
+  safe: { flex: 1, backgroundColor: '#f8fafc' },
   header: {
     backgroundColor: '#fff',
-    paddingVertical: 16,
+    paddingVertical: 14,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
   },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: '#1a73e8' },
-  body: { flex: 1, padding: 24, justifyContent: 'center', alignItems: 'center' },
-  label: { fontSize: 16, color: '#555', marginBottom: 20, fontWeight: '500' },
-  toggle: {
-    flexDirection: 'row',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#1a73e8',
-    overflow: 'hidden',
-    marginBottom: 40,
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1e293b' },
+  body: { padding: 20 },
+  label: { fontSize: 15, fontWeight: '700', color: '#334155', marginBottom: 12 },
+  row: { gap: 10 },
+  chip: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: '#cbd5e1',
+    alignItems: 'center',
   },
-  toggleBtn: { paddingVertical: 12, paddingHorizontal: 32, backgroundColor: '#fff' },
-  toggleActive: { backgroundColor: '#1a73e8' },
-  toggleText: { fontSize: 15, color: '#1a73e8', fontWeight: '600' },
-  toggleTextActive: { color: '#fff' },
+  chipActive: {
+    borderColor: '#2563eb',
+    backgroundColor: '#eff6ff',
+  },
+  chipText: { fontSize: 15, fontWeight: '600', color: '#475569' },
+  chipTextActive: { color: '#2563eb', fontWeight: '700' },
+
   startBtn: {
-    backgroundColor: '#1a73e8',
+    backgroundColor: '#2563eb',
     paddingVertical: 16,
-    paddingHorizontal: 60,
     borderRadius: 16,
+    alignItems: 'center',
+    marginTop: 40,
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  startText: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  startText: { color: '#fff', fontSize: 17, fontWeight: '700' },
 });

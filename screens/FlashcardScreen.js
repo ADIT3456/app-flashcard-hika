@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   Animated, Pressable,
@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Speech from 'expo-speech';
 import hiraganaData from '../data/hiragana';
 import katakanaData from '../data/katakana';
+import { loadProgress, getMasteryLevel, MASTERY_CONFIG } from '../utils/mastery';
 
 function shuffle(arr) {
   const a = [...arr];
@@ -24,7 +25,6 @@ export default function FlashcardScreen({ route, navigation }) {
   const allCards = type === 'hiragana' ? hiraganaData : katakanaData;
   const cards = useMemo(
     () => (mode === 'random' ? shuffle(allCards) : allCards),
-    // ponytail: memo only on mount; mode & type won't change mid-session
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
@@ -32,21 +32,26 @@ export default function FlashcardScreen({ route, navigation }) {
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [done, setDone] = useState(false);
+  const [progressMap, setProgressMap] = useState({});
 
-  // Flip animation via opacity crossfade (no extra deps)
+  useEffect(() => {
+    loadProgress().then(setProgressMap);
+  }, []);
+
+  // Flip animation via opacity crossfade
   const frontOpacity = useRef(new Animated.Value(1)).current;
   const backOpacity = useRef(new Animated.Value(0)).current;
 
   const flip = () => {
     if (flipped) {
       Animated.parallel([
-        Animated.timing(frontOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
-        Animated.timing(backOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+        Animated.timing(frontOpacity, { toValue: 1, duration: 180, useNativeDriver: true }),
+        Animated.timing(backOpacity, { toValue: 0, duration: 180, useNativeDriver: true }),
       ]).start(() => setFlipped(false));
     } else {
       Animated.parallel([
-        Animated.timing(frontOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
-        Animated.timing(backOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.timing(frontOpacity, { toValue: 0, duration: 180, useNativeDriver: true }),
+        Animated.timing(backOpacity, { toValue: 1, duration: 180, useNativeDriver: true }),
       ]).start(() => setFlipped(true));
     }
   };
@@ -56,26 +61,34 @@ export default function FlashcardScreen({ route, navigation }) {
       setDone(true);
       return;
     }
-    // Reset flip before moving
     frontOpacity.setValue(1);
     backOpacity.setValue(0);
     setFlipped(false);
     setIndex((i) => i + 1);
   };
 
+  const prev = () => {
+    if (index > 0) {
+      frontOpacity.setValue(1);
+      backOpacity.setValue(0);
+      setFlipped(false);
+      setIndex((i) => i - 1);
+    }
+  };
+
   const speak = () => {
-    Speech.speak(cards[index].char, { language: 'ja-JP' });
+    Speech.speak(cards[index].char, { language: 'ja-JP', pitch: 1.0, rate: 0.9 });
   };
 
   const goHome = () => navigation.navigate('Home');
 
   const progress = (index + 1) / cards.length;
   const card = cards[index];
-  const SvgComponent = card?.svg;
+  const level = getMasteryLevel(progressMap[card?.key]);
+  const masteryInfo = MASTERY_CONFIG[level] || MASTERY_CONFIG.unlearned;
 
   const sessionTitle = type === 'hiragana' ? 'Hiragana Session' : 'Katakana Session';
 
-  // ── Done screen ──
   if (done) {
     return (
       <SafeAreaView style={styles.safe}>
@@ -95,40 +108,59 @@ export default function FlashcardScreen({ route, navigation }) {
     <SafeAreaView style={styles.safe}>
       {/* Header */}
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12}>
+          <Text style={styles.backButton}>← Keluar</Text>
+        </TouchableOpacity>
         <Text style={styles.sessionTitle}>{sessionTitle}</Text>
-        <Text style={styles.progress}>{index + 1} / {cards.length}</Text>
+        <Text style={styles.progressText}>{index + 1} / {cards.length}</Text>
       </View>
 
-      {/* Progress bar */}
+      {/* Progress Bar */}
       <View style={styles.progressBarBg}>
         <View style={[styles.progressBarFill, { width: `${Math.round(progress * 100)}%` }]} />
       </View>
 
-      {/* Flashcard */}
+      {/* Flashcard with Native Typography */}
       <Pressable style={styles.cardWrapper} onPress={flip}>
-        {/* Front: SVG */}
+        {/* Front: Big Japanese Character */}
         <Animated.View style={[styles.card, { opacity: frontOpacity }]}>
-          {SvgComponent && <SvgComponent width="100%" height="100%" preserveAspectRatio="xMidYMid meet" />}
+          <View style={[styles.masteryBadge, { backgroundColor: masteryInfo.bg }]}>
+            <Text style={[styles.masteryBadgeText, { color: masteryInfo.color }]}>
+              {masteryInfo.badge} {masteryInfo.label}
+            </Text>
+          </View>
+          <Text style={styles.japaneseChar}>{card.char}</Text>
+          <Text style={styles.flipHint}>Ketuk untuk melihat Romaji</Text>
         </Animated.View>
 
-        {/* Back: romaji */}
+        {/* Back: Romaji & Detail */}
         <Animated.View style={[styles.card, styles.cardBack, { opacity: backOpacity }]}>
+          <View style={[styles.masteryBadge, { backgroundColor: masteryInfo.bg }]}>
+            <Text style={[styles.masteryBadgeText, { color: masteryInfo.color }]}>
+              {masteryInfo.badge} {masteryInfo.label}
+            </Text>
+          </View>
           <Text style={styles.romajiText}>{card.romaji}</Text>
-          <Text style={styles.charText}>{card.char}</Text>
+          <Text style={styles.charSubtitle}>{card.char}</Text>
+          <Text style={styles.flipHint}>Ketuk untuk kembali</Text>
         </Animated.View>
       </Pressable>
 
-      <Text style={styles.hint}>Tap card to flip</Text>
-
-      {/* Buttons */}
+      {/* Action Controls */}
       <View style={styles.btnRow}>
-        <TouchableOpacity style={styles.speakBtn} onPress={speak}>
+        {index > 0 && (
+          <TouchableOpacity style={styles.prevBtn} onPress={prev}>
+            <Text style={styles.prevText}>←</Text>
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity style={styles.speakBtn} onPress={speak} activeOpacity={0.8}>
           <Text style={styles.speakIcon}>🔊</Text>
-          <Text style={styles.speakLabel}>Putar</Text>
+          <Text style={styles.speakLabel}>Putar Audio</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.nextBtn} onPress={next}>
-          <Text style={styles.nextText}>Lanjut</Text>
+        <TouchableOpacity style={styles.nextBtn} onPress={next} activeOpacity={0.8}>
+          <Text style={styles.nextText}>{index === cards.length - 1 ? 'Selesai' : 'Lanjut →'}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -136,87 +168,128 @@ export default function FlashcardScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f5f7fb' },
-
+  safe: { flex: 1, backgroundColor: '#f8fafc' },
   header: {
     backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 2,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
   },
-  sessionTitle: { fontSize: 15, fontWeight: '600', color: '#1a73e8' },
-  progress: { fontSize: 14, color: '#555', fontWeight: '500' },
+  backButton: { fontSize: 14, color: '#64748b', fontWeight: '600' },
+  sessionTitle: { fontSize: 16, fontWeight: '700', color: '#1e293b' },
+  progressText: { fontSize: 14, color: '#64748b', fontWeight: '600' },
 
-  progressBarBg: { height: 6, backgroundColor: '#e0e0e0' },
-  progressBarFill: { height: 6, backgroundColor: '#34a853', borderRadius: 3 },
+  progressBarBg: { height: 5, backgroundColor: '#e2e8f0' },
+  progressBarFill: { height: 5, backgroundColor: '#2563eb', borderRadius: 3 },
 
   cardWrapper: {
     flex: 1,
     margin: 20,
-    marginTop: 24,
+    marginTop: 20,
   },
   card: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: '#fff',
-    borderRadius: 24,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    overflow: 'hidden',
-    padding: 16,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 5,
   },
   cardBack: { backgroundColor: '#fff' },
 
-  romajiText: { fontSize: 56, fontWeight: '700', color: '#1a73e8' },
-  charText: { fontSize: 28, color: '#555', marginTop: 12 },
+  masteryBadge: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+  },
+  masteryBadgeText: { fontSize: 12, fontWeight: '700' },
 
-  hint: { textAlign: 'center', color: '#aaa', fontSize: 13, marginBottom: 20 },
+  japaneseChar: {
+    fontSize: 120,
+    fontWeight: '800',
+    color: '#1e293b',
+    textAlign: 'center',
+    includeFontPadding: false,
+  },
+  romajiText: {
+    fontSize: 64,
+    fontWeight: '800',
+    color: '#2563eb',
+    textAlign: 'center',
+  },
+  charSubtitle: {
+    fontSize: 32,
+    fontWeight: '600',
+    color: '#64748b',
+    marginTop: 8,
+  },
+  flipHint: {
+    position: 'absolute',
+    bottom: 24,
+    fontSize: 13,
+    color: '#94a3b8',
+    fontWeight: '500',
+  },
 
   btnRow: {
     flexDirection: 'row',
     paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingBottom: 20,
     gap: 12,
+    alignItems: 'center',
   },
+  prevBtn: {
+    width: 50,
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: '#cbd5e1',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  prevText: { fontSize: 18, fontWeight: '700', color: '#475569' },
   speakBtn: {
     flex: 1,
+    height: 52,
     borderWidth: 2,
-    borderColor: '#1a73e8',
+    borderColor: '#2563eb',
     borderRadius: 14,
-    paddingVertical: 14,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#fff',
+    gap: 8,
+    backgroundColor: '#eff6ff',
   },
   speakIcon: { fontSize: 18 },
-  speakLabel: { color: '#1a73e8', fontWeight: '600', fontSize: 15 },
+  speakLabel: { color: '#2563eb', fontWeight: '700', fontSize: 15 },
 
   nextBtn: {
-    flex: 2,
-    backgroundColor: '#1a73e8',
+    flex: 1.2,
+    height: 52,
+    backgroundColor: '#2563eb',
     borderRadius: 14,
-    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   nextText: { color: '#fff', fontWeight: '700', fontSize: 16 },
 
-  // Done screen
   doneContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
   doneEmoji: { fontSize: 72, marginBottom: 16 },
-  doneTitle: { fontSize: 28, fontWeight: '800', color: '#1a1a2e', marginBottom: 8 },
-  doneSubtitle: { fontSize: 16, color: '#555', marginBottom: 40 },
+  doneTitle: { fontSize: 26, fontWeight: '800', color: '#0f172a', marginBottom: 8 },
+  doneSubtitle: { fontSize: 16, color: '#64748b', marginBottom: 36, textAlign: 'center' },
 });
