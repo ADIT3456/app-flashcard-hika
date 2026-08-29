@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Speech from 'expo-speech';
 import hiraganaData from '../data/hiragana';
 import katakanaData from '../data/katakana';
-import { loadProgress, getMasteryLevel, MASTERY_CONFIG } from '../utils/mastery';
+import { loadProgress, getMasteryLevel, recordMasteryRecords, MASTERY_CONFIG } from '../utils/mastery';
 
 function shuffle(arr) {
   const a = [...arr];
@@ -56,9 +56,14 @@ export default function FlashcardScreen({ route, navigation }) {
     }
   };
 
+  const finishSession = async () => {
+    await recordMasteryRecords('kana', cards.map((c) => ({ id: c.key, isCorrect: true })));
+    setDone(true);
+  };
+
   const next = () => {
     if (index >= cards.length - 1) {
-      setDone(true);
+      finishSession();
       return;
     }
     frontOpacity.setValue(1);
@@ -80,7 +85,7 @@ export default function FlashcardScreen({ route, navigation }) {
     Speech.speak(cards[index].char, { language: 'ja-JP', pitch: 1.0, rate: 0.9 });
   };
 
-  const goHome = () => navigation.navigate('Home');
+  const goHome = () => navigation.navigate('HomeMain');
 
   const progress = (index + 1) / cards.length;
   const card = cards[index];

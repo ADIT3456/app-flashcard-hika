@@ -73,14 +73,18 @@ export default function AppNavigator() {
           tabBarInactiveTintColor: '#94a3b8',
           tabBarStyle: styles.tabBar,
           tabBarLabelStyle: styles.tabLabel,
-          tabBarIcon: ({ size }) => {
+          tabBarIcon: ({ focused }) => {
             const icons = {
-              KanaTab: 'あ',
+              KanaTab: '🎴',
               KotobaTab: '📖',
               JLPTTab: '🏆',
               ProgressTab: '📊',
             };
-            return <Text style={{ fontSize: size - 4, fontWeight: '700' }}>{icons[route.name] || '•'}</Text>;
+            return (
+              <Text style={{ fontSize: 20, textAlign: 'center' }}>
+                {icons[route.name] || '•'}
+              </Text>
+            );
           },
         })}
       >

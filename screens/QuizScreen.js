@@ -128,7 +128,7 @@ export default function QuizScreen({ route, navigation }) {
 
             <TouchableOpacity
               style={styles.progressBtn}
-              onPress={() => navigation.navigate('Progress')}
+              onPress={() => navigation.navigate('ProgressTab')}
               activeOpacity={0.85}
             >
               <Text style={styles.progressBtnText}>Lihat Level Penguasaan 📊</Text>
@@ -136,7 +136,7 @@ export default function QuizScreen({ route, navigation }) {
 
             <TouchableOpacity
               style={styles.homeBtn}
-              onPress={() => navigation.navigate('Home')}
+              onPress={() => navigation.navigate('HomeMain')}
               activeOpacity={0.85}
             >
               <Text style={styles.homeBtnText}>Kembali ke Home</Text>
