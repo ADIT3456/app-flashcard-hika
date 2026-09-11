@@ -1,17 +1,4 @@
-# 📋 Laporan Technical Engineering & Rulebook Project `flashcard-mobile`
-
----
-
-## 1. ✂️ Ponytail Review (Audit Over-Engineering Kode)
-
-- `navigation/AppNavigator.js`: Menggunakan 4 Bottom Tabs terpadu (`Kana`, `Kotoba`, `JLPT`, `Progress`) tanpa dependensi navigasi berlebihan.
-- `screens/HomeScreen.js`: Tipografi native tajam, rendering ringan, zero memory leaks.
-- `screens/FlashcardScreen.js`: Migrasi dari SVG ke native `Text` Unicode. Loading instan, konsumsi memori hemat, tipografi tajam di segala resolusi layar.
-- `data/kotoba/`: Dataset 1000 kata modular terbagi dalam 5 batch ringan dan efisien.
-
----
-
-## 2. 🛡️ Pedoman Upgrade Aplikasi Kedepannya (Mencegah Error)
+## 1. 🛡️ Pedoman Upgrade Aplikasi Kedepannya (Mencegah Error)
 
 Untuk memastikan upgrade versi Expo / React Native / Fitur baru berjalan mulus tanpa error "mental" atau crash:
 
@@ -36,41 +23,7 @@ Untuk memastikan upgrade versi Expo / React Native / Fitur baru berjalan mulus t
 
 ---
 
-## 3. 🎯 Spesifikasi Level Penguasaan (Mastery Level System)
-
-Sistem level penguasaan dihitung secara modular & namespaced melalui `utils/mastery.js`:
-- `progress:kana` (Karakter Hiragana & Katakana)
-- `progress:kotoba` (1000 Kosakata)
-- `progress:jlpt:n5` & `progress:jlpt:n4` (Latihan & Ujian JLPT)
-- `favorites` (Daftar kata favorit)
-
-Kriteria Mastery:
-- ⚪ **Belum (`unlearned`)**:
-  - `attempts === 0` (Item belum pernah diuji/dipelajari).
-- 🟡 **Sedang Belajar (`learning`)**:
-  - `attempts > 0` DAN (`streak < 3` ATAU akurasi $< 75\%$).
-- 🟢 **Mahir (`mastered`)**:
-  - `attempts >= 3` DAN `streak >= 3` berturut-turut.
-
----
-
-## 4. 📖 Arsitektur Fitur Kotoba & JLPT
-
-1. **Kotoba (1000 Kosakata)**:
-   - 30 Kategori tematik dengan level N5 & N4.
-   - Algoritma Spaced Repetition (SRS-Lite) di `utils/srsLite.js`.
-   - Audio pengucapan aksen Jepang via `expo-speech` (`ja-JP`).
-2. **JLPT Practice Center**:
-   - Soal latihan per bagian: Kosakata, Tata Bahasa, Membaca, dan Mendengarkan (Audio synthesis).
-   - Simulasi Ujian (Mock Test) berbatas waktu dengan timer countdown.
-   - Integrasi langsung: Pertanyaan yang salah menyertakan tombol tautan ke detail kosakata terkait di modul Kotoba (`relatedVocabulary`).
-
----
-
-## 5. 🚨 Aturan Wajib Saat Git Push (Git Push Rules)
-
-Sebelum melakukan `git push` ke repositori, pengembang wajib mematuhi **4 Aturan Utama**:
-
+#
 ### 🔴 Aturan 1: Dilarang Commit File Build & Temporary (Cek `.gitignore`)
 Pastikan file berikut **TIDAK TERCOMMIT** ke Git:
 - `android/app/build/` dan `android/.gradle/` (Folder kompilasi APK)
@@ -91,10 +44,7 @@ cd android && .\gradlew.bat assembleRelease
 
 ### 🔵 Aturan 3: Format Pesan Commit Ringkas & Jelas (Conventional Commits)
 Gunakan prefix standar pada commit message:
-- `feat:` Tambah fitur baru (contoh: `feat: tambah 1000 kosakata kotoba dan jlpt practice`)
-- `fix:` Perbaikan bug (contoh: `fix: atasi card layout scaling`)
-- `build:` Perubahan konfigurasi native/gradle (contoh: `build: aktifkan abi splits 40mb`)
-- `refactor:` Penyederhanaan kode tanpa mengubah fitur.
+
 
 ### 🟢 Aturan 4: Single Responsibility Branching
 - Pengerjaan fitur baru sebaiknya dilakukan pada cabang fitur dan di-merge ke branch `main` hanya setelah kompilasi APK lokal dinyatakan **BUILD SUCCESSFUL**.

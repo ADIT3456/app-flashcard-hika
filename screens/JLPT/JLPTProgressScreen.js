@@ -1,34 +1,42 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getJLPTQuestions, JLPT_SECTIONS } from '../../data/jlpt';
-import { getNamespaceData } from '../../utils/mastery';
+import { useIsFocused } from '@react-navigation/native';
+import { getJLPTDetailedProgress } from '../../db';
+
+const JLPT_SECTIONS_INFO = [
+  { id: 'moji_goi', label: 'Huruf & Kosakata (Moji & Goi)', icon: '📖' },
+  { id: 'bunpou', label: 'Tata Bahasa (Bunpou)', icon: '📐' },
+  { id: 'dokkai', label: 'Pemahaman Bacaan (Dokkai)', icon: '📄' },
+  { id: 'choukai', label: 'Mendengarkan (Choukai)', icon: '🎧' },
+];
 
 export default function JLPTProgressScreen({ navigation }) {
+  const isFocused = useIsFocused();
   const [level, setLevel] = useState('N5');
-  const [history, setHistory] = useState({});
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
-      const data = await getNamespaceData(level === 'N5' ? 'jlpt:n5' : 'jlpt:n4');
-      setHistory(data || {});
+      try {
+        setLoading(true);
+        const data = await getJLPTDetailedProgress(level);
+        setStats(data);
+      } catch (err) {
+        console.warn('Error loading JLPT progress:', err);
+      } finally {
+        setLoading(false);
+      }
     }
-    loadData();
-  }, [level]);
-
-  const questions = getJLPTQuestions(level, 'all');
-
-  let totalAttempts = 0;
-  let totalCorrect = 0;
-  questions.forEach((q) => {
-    const stat = history[q.id];
-    if (stat) {
-      totalAttempts += stat.attempts || 0;
-      totalCorrect += stat.correct || 0;
+    if (isFocused) {
+      loadData();
     }
-  });
+  }, [level, isFocused]);
 
-  const overallAccuracy = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
+  const totalAttempts = stats?.totalAttempts || 0;
+  const totalCorrect = stats?.totalCorrect || 0;
+  const overallAccuracy = stats?.overallAccuracy || 0;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -42,95 +50,93 @@ export default function JLPTProgressScreen({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-        {/* Level Switcher */}
+        {/* Level Switcher (N5, N4, N3) */}
         <View style={styles.levelSwitcher}>
-          <TouchableOpacity
-            style={[styles.levelBtn, level === 'N5' && styles.levelBtnActive]}
-            onPress={() => setLevel('N5')}
-          >
-            <Text style={[styles.levelBtnText, level === 'N5' && styles.levelBtnTextActive]}>JLPT N5</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.levelBtn, level === 'N4' && styles.levelBtnActive]}
-            onPress={() => setLevel('N4')}
-          >
-            <Text style={[styles.levelBtnText, level === 'N4' && styles.levelBtnTextActive]}>JLPT N4</Text>
-          </TouchableOpacity>
+          {['N5', 'N4', 'N3'].map((lvl) => (
+            <TouchableOpacity
+              key={lvl}
+              style={[styles.levelBtn, level === lvl && styles.levelBtnActive]}
+              onPress={() => setLevel(lvl)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.levelBtnText, level === lvl && styles.levelBtnTextActive]}>
+                JLPT {lvl}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        {/* Overview Stats */}
-        <View style={styles.overviewCard}>
-          <Text style={styles.overviewTitle}>Performa Keseluruhan {level}</Text>
-          <View style={styles.overviewRow}>
-            <View style={styles.overviewBox}>
-              <Text style={styles.overviewNum}>{overallAccuracy}%</Text>
-              <Text style={styles.overviewLabel}>Akurasi Total</Text>
-            </View>
-            <View style={styles.overviewBox}>
-              <Text style={styles.overviewNum}>{totalAttempts}</Text>
-              <Text style={styles.overviewLabel}>Total Dikerjakan</Text>
-            </View>
-            <View style={styles.overviewBox}>
-              <Text style={[styles.overviewNum, { color: '#16a34a' }]}>{totalCorrect}</Text>
-              <Text style={styles.overviewLabel}>Jawaban Benar</Text>
-            </View>
+        {loading ? (
+          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#2563eb" />
           </View>
-        </View>
-
-        {/* Section Mastery */}
-        <Text style={styles.sectionHeader}>Penguasaan Per Bagian</Text>
-        <View style={styles.sectionList}>
-          {JLPT_SECTIONS.filter((s) => s.id !== 'all').map((sec) => {
-            const secQuestions = getJLPTQuestions(level, sec.id);
-            let secAttempts = 0;
-            let secCorrect = 0;
-
-            secQuestions.forEach((q) => {
-              const stat = history[q.id];
-              if (stat) {
-                secAttempts += stat.attempts || 0;
-                secCorrect += stat.correct || 0;
-              }
-            });
-
-            const secAcc = secAttempts > 0 ? Math.round((secCorrect / secAttempts) * 100) : 0;
-
-            return (
-              <View key={sec.id} style={styles.secItemCard}>
-                <View style={styles.secItemTop}>
-                  <View style={styles.secItemLeft}>
-                    <Text style={styles.secIcon}>{sec.icon}</Text>
-                    <Text style={styles.secItemTitle}>{sec.label}</Text>
-                  </View>
-                  <Text style={styles.secItemAcc}>{secAcc}%</Text>
+        ) : (
+          <>
+            {/* Overview Stats */}
+            <View style={styles.overviewCard}>
+              <Text style={styles.overviewTitle}>Performa Keseluruhan {level}</Text>
+              <View style={styles.overviewRow}>
+                <View style={styles.overviewBox}>
+                  <Text style={styles.overviewNum}>{overallAccuracy}%</Text>
+                  <Text style={styles.overviewLabel}>Akurasi Total</Text>
                 </View>
-
-                <View style={styles.barBg}>
-                  <View
-                    style={[
-                      styles.barFill,
-                      {
-                        width: `${secAcc}%`,
-                        backgroundColor: secAcc >= 70 ? '#16a34a' : secAcc >= 40 ? '#eab308' : '#cbd5e1',
-                      },
-                    ]}
-                  />
+                <View style={styles.overviewBox}>
+                  <Text style={styles.overviewNum}>{totalAttempts}</Text>
+                  <Text style={styles.overviewLabel}>Total Dikerjakan</Text>
                 </View>
-
-                <View style={styles.secItemBottom}>
-                  <Text style={styles.secSubText}>
-                    {secCorrect} benar dari {secAttempts} percobaan ({secQuestions.length} soal tersedia)
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => navigation.navigate('JLPTPractice', { level, section: sec.id })}
-                  >
-                    <Text style={styles.secLinkText}>Latihan →</Text>
-                  </TouchableOpacity>
+                <View style={styles.overviewBox}>
+                  <Text style={[styles.overviewNum, { color: '#16a34a' }]}>{totalCorrect}</Text>
+                  <Text style={styles.overviewLabel}>Jawaban Benar</Text>
                 </View>
               </View>
-            );
-          })}
-        </View>
+            </View>
+
+            {/* Section Mastery */}
+            <Text style={styles.sectionHeader}>Penguasaan Per Bagian</Text>
+            <View style={styles.sectionList}>
+              {JLPT_SECTIONS_INFO.map((sec) => {
+                const stat = stats?.sections?.[sec.id] || { total: 0, attempts: 0, correct: 0 };
+                const secAcc = stat.attempts > 0 ? Math.round((stat.correct / stat.attempts) * 100) : 0;
+
+                return (
+                  <View key={sec.id} style={styles.secItemCard}>
+                    <View style={styles.secItemTop}>
+                      <View style={styles.secItemLeft}>
+                        <Text style={styles.secIcon}>{sec.icon}</Text>
+                        <Text style={styles.secItemTitle}>{sec.label}</Text>
+                      </View>
+                      <Text style={styles.secItemAcc}>{secAcc}%</Text>
+                    </View>
+
+                    <View style={styles.barBg}>
+                      <View
+                        style={[
+                          styles.barFill,
+                          {
+                            width: `${secAcc}%`,
+                            backgroundColor: secAcc >= 70 ? '#16a34a' : secAcc >= 40 ? '#eab308' : '#cbd5e1',
+                          },
+                        ]}
+                      />
+                    </View>
+
+                    <View style={styles.secItemBottom}>
+                      <Text style={styles.secSubText}>
+                        {stat.correct} benar dari {stat.attempts} percobaan ({stat.total} soal tersedia)
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => navigation.navigate('JLPTPractice', { level, section: sec.id })}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.secLinkText}>Latihan →</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

@@ -1,33 +1,19 @@
-import React, { useState, useRef, useMemo, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  Animated, Pressable,
+  Animated, Pressable, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Speech from 'expo-speech';
-import hiraganaData from '../data/hiragana';
-import katakanaData from '../data/katakana';
-import { loadProgress, getMasteryLevel, recordMasteryRecords, MASTERY_CONFIG } from '../utils/mastery';
-
-function shuffle(arr) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
+import { useCharacters, getProgressMap, updateBatchProgress, recordStudySession } from '../db';
+import { MASTERY_CONFIG } from '../utils/mastery';
 
 export default function FlashcardScreen({ route, navigation }) {
   const type = route?.params?.type || 'hiragana';
   const mode = route?.params?.mode || 'sequential';
 
-  const allCards = type === 'hiragana' ? hiraganaData : katakanaData;
-  const cards = useMemo(
-    () => (mode === 'random' ? shuffle(allCards) : allCards),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
+  const { data: cards, loading } = useCharacters(type, mode);
+  const sessionStartTime = useRef(new Date().toISOString());
 
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -35,7 +21,7 @@ export default function FlashcardScreen({ route, navigation }) {
   const [progressMap, setProgressMap] = useState({});
 
   useEffect(() => {
-    loadProgress().then(setProgressMap);
+    getProgressMap('kana').then(setProgressMap);
   }, []);
 
   // Flip animation via opacity crossfade
@@ -57,7 +43,17 @@ export default function FlashcardScreen({ route, navigation }) {
   };
 
   const finishSession = async () => {
-    await recordMasteryRecords('kana', cards.map((c) => ({ id: c.key, isCorrect: true })));
+    if (cards && cards.length > 0) {
+      await updateBatchProgress('kana', cards.map((c) => ({ itemId: c.key, isCorrect: true })));
+      await recordStudySession({
+        mode,
+        module: 'kana',
+        score: cards.length,
+        total: cards.length,
+        startedAt: sessionStartTime.current,
+        finishedAt: new Date().toISOString(),
+      });
+    }
     setDone(true);
   };
 
@@ -82,14 +78,28 @@ export default function FlashcardScreen({ route, navigation }) {
   };
 
   const speak = () => {
-    Speech.speak(cards[index].char, { language: 'ja-JP', pitch: 1.0, rate: 0.9 });
+    if (cards[index]?.char) {
+      Speech.speak(cards[index].char, { language: 'ja-JP', pitch: 1.0, rate: 0.9 });
+    }
   };
 
   const goHome = () => navigation.navigate('HomeMain');
 
+  if (loading || !cards || cards.length === 0) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.doneContainer}>
+          <ActivityIndicator size="large" color="#2563eb" />
+          <Text style={{ marginTop: 12, color: '#64748b' }}>Memuat karakter...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   const progress = (index + 1) / cards.length;
   const card = cards[index];
-  const level = getMasteryLevel(progressMap[card?.key]);
+  const itemProgress = progressMap[card?.key];
+  const level = itemProgress?.mastery || 'unlearned';
   const masteryInfo = MASTERY_CONFIG[level] || MASTERY_CONFIG.unlearned;
 
   const sessionTitle = type === 'hiragana' ? 'Hiragana Session' : 'Katakana Session';

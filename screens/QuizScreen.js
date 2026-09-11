@@ -1,9 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import hiraganaData from '../data/hiragana';
-import katakanaData from '../data/katakana';
-import { recordQuizAnswers } from '../utils/mastery';
+import { getCharacters, updateBatchProgress, recordStudySession } from '../db';
 
 function shuffle(arr) {
   const a = [...arr];
@@ -28,16 +26,26 @@ function generateOptions(targetCard, pool) {
 export default function QuizScreen({ route, navigation }) {
   const category = route?.params?.category || 'hiragana';
   const questionCount = route?.params?.questionCount || 10;
+  const sessionStartTime = useRef(new Date().toISOString());
 
-  // Pool of characters based on category
-  const pool = useMemo(() => {
-    if (category === 'hiragana') return hiraganaData;
-    if (category === 'katakana') return katakanaData;
-    return [...hiraganaData, ...katakanaData];
+  const [pool, setPool] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load characters from SQLite
+  useEffect(() => {
+    let active = true;
+    getCharacters(category === 'all' ? 'all' : category).then((items) => {
+      if (active) {
+        setPool(items);
+        setLoading(false);
+      }
+    });
+    return () => { active = false; };
   }, [category]);
 
   // Questions list
   const questions = useMemo(() => {
+    if (!pool || pool.length === 0) return [];
     const shuffled = shuffle(pool);
     const count = questionCount === 'all' ? shuffled.length : Math.min(questionCount, shuffled.length);
     return shuffled.slice(0, count);
@@ -47,22 +55,21 @@ export default function QuizScreen({ route, navigation }) {
   const [selectedOption, setSelectedOption] = useState(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [score, setScore] = useState(0);
-  const [quizResults, setQuizResults] = useState([]); // [{ card, selected, isCorrect }]
+  const [quizResults, setQuizResults] = useState([]); // [{ key, char, romaji, selected, isCorrect }]
   const [isDone, setIsDone] = useState(false);
 
   const currentCard = questions[currentIndex];
 
   // Options for current question
   const currentOptions = useMemo(() => {
-    if (!currentCard) return [];
+    if (!currentCard || !pool.length) return [];
     return generateOptions(currentCard, pool);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex, currentCard]);
+  }, [currentIndex, currentCard, pool]);
 
-  const progress = (currentIndex + 1) / questions.length;
+  const progress = questions.length > 0 ? (currentIndex + 1) / questions.length : 0;
 
   const handleSelectOption = (option) => {
-    if (isAnswered) return;
+    if (isAnswered || !currentCard) return;
 
     const isCorrect = option === currentCard.romaji;
     setSelectedOption(option);
@@ -96,12 +103,36 @@ export default function QuizScreen({ route, navigation }) {
     }, 850);
   };
 
-  // Save progress when quiz finishes
+  // Save progress & study session to SQLite when quiz finishes
   useEffect(() => {
     if (isDone && quizResults.length > 0) {
-      recordQuizAnswers(quizResults.map((r) => ({ key: r.key, isCorrect: r.isCorrect })));
+      (async () => {
+        await updateBatchProgress(
+          'kana',
+          quizResults.map((r) => ({ itemId: r.key, isCorrect: r.isCorrect }))
+        );
+        await recordStudySession({
+          mode: 'quiz',
+          module: 'kana',
+          score,
+          total: questions.length,
+          startedAt: sessionStartTime.current,
+          finishedAt: new Date().toISOString(),
+        });
+      })();
     }
-  }, [isDone, quizResults]);
+  }, [isDone, quizResults, score, questions.length]);
+
+  if (loading || !currentCard) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#2563eb" />
+          <Text style={{ marginTop: 12, color: '#64748b' }}>Memuat soal kuis...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (isDone) {
     const percentage = Math.round((score / questions.length) * 100);

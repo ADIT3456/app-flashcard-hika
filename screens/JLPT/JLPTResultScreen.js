@@ -99,11 +99,13 @@ export default function JLPTResultScreen({ route, navigation }) {
         <View style={styles.reviewList}>
           {questions.map((q, idx) => {
             const userChoice = userAnswers[idx];
-            const isCorrect = userChoice === q.answerIndex;
+            const correctIdx = q.answerIndex !== undefined ? q.answerIndex : q.correct_index;
+            const isCorrect = userChoice === correctIdx;
+            const secName = (q.section || 'General').replace('_', ' ').toUpperCase();
             return (
               <View key={q.id || idx} style={styles.reviewCard}>
                 <View style={styles.reviewCardHeader}>
-                  <Text style={styles.reviewQNum}>No. {idx + 1} ({q.section.toUpperCase()})</Text>
+                  <Text style={styles.reviewQNum}>No. {idx + 1} ({secName})</Text>
                   <View style={[styles.statusBadge, isCorrect ? styles.statusBadgePass : styles.statusBadgeFail]}>
                     <Text style={[styles.statusText, isCorrect ? styles.statusTextPass : styles.statusTextFail]}>
                       {isCorrect ? '✅ Benar' : '❌ Salah'}
@@ -111,15 +113,15 @@ export default function JLPTResultScreen({ route, navigation }) {
                   </View>
                 </View>
 
-                <Text style={styles.reviewQuestion}>{q.question}</Text>
+                <Text style={styles.reviewQuestion}>{q.question || q.questionText}</Text>
 
                 <View style={styles.answerCompare}>
                   <Text style={styles.answerText}>
-                    Jawabanmu: <Text style={isCorrect ? styles.ansCorrect : styles.ansWrong}>{userChoice !== undefined ? q.options[userChoice] : 'Tidak dijawab'}</Text>
+                    Jawabanmu: <Text style={isCorrect ? styles.ansCorrect : styles.ansWrong}>{userChoice !== undefined && q.options ? q.options[userChoice] : 'Tidak dijawab'}</Text>
                   </Text>
                   {!isCorrect && (
                     <Text style={styles.answerText}>
-                      Kunci Jawaban: <Text style={styles.ansCorrect}>{q.options[q.answerIndex]}</Text>
+                      Kunci Jawaban: <Text style={styles.ansCorrect}>{q.options ? q.options[correctIdx] : '-'}</Text>
                     </Text>
                   )}
                 </View>

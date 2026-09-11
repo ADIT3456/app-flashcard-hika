@@ -1,37 +1,50 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Speech from 'expo-speech';
-import { generateMockTest } from '../../data/jlpt';
-import { recordMasteryRecords } from '../../utils/mastery';
+import { getJLPTMockExam, updateBatchProgress, recordStudySession } from '../../db';
 
 export default function JLPTMockTestScreen({ route, navigation }) {
   const level = route?.params?.level || 'N5';
   const [questions, setQuestions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState({});
-  const [secondsRemaining, setSecondsRemaining] = useState(900); // 15 menit
+  const [secondsRemaining, setSecondsRemaining] = useState(1200); // 20 menit simulasi
+  const [loading, setLoading] = useState(true);
   const timerRef = useRef(null);
+  const sessionStartTime = useRef(new Date().toISOString());
 
   useEffect(() => {
-    const mockList = generateMockTest(level, 10);
-    setQuestions(mockList);
+    let active = true;
+    (async () => {
+      try {
+        const mockList = await getJLPTMockExam(level);
+        if (active) {
+          setQuestions(mockList);
+          setLoading(false);
 
-    timerRef.current = setInterval(() => {
-      setSecondsRemaining((prev) => {
-        if (prev <= 1) {
-          clearInterval(timerRef.current);
-          handleSubmit(mockList, userAnswers);
-          return 0;
+          timerRef.current = setInterval(() => {
+            setSecondsRemaining((prev) => {
+              if (prev <= 1) {
+                clearInterval(timerRef.current);
+                handleSubmit(mockList, userAnswers);
+                return 0;
+              }
+              return prev - 1;
+            });
+          }, 1000);
         }
-        return prev - 1;
-      });
-    }, 1000);
+      } catch (err) {
+        console.warn('Error loading mock exam:', err);
+        setLoading(false);
+      }
+    })();
 
     return () => {
+      active = false;
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, []);
+  }, [level]);
 
   const handleSelect = (optionIndex) => {
     setUserAnswers((prev) => ({
@@ -49,11 +62,18 @@ export default function JLPTMockTestScreen({ route, navigation }) {
     testQuestions.forEach((q, idx) => {
       const isCorrect = answers[idx] === q.answerIndex;
       if (isCorrect) correctCount++;
-      records.push({ id: q.id, isCorrect });
+      records.push({ itemId: q.id, isCorrect });
     });
 
-    const namespace = level === 'N5' ? 'jlpt:n5' : 'jlpt:n4';
-    await recordMasteryRecords(namespace, records);
+    await updateBatchProgress(`jlpt_${level.toLowerCase()}`, records);
+    await recordStudySession({
+      mode: 'mock_exam',
+      module: 'jlpt',
+      score: correctCount,
+      total: testQuestions.length,
+      startedAt: sessionStartTime.current,
+      finishedAt: new Date().toISOString(),
+    });
 
     navigation.replace('JLPTResult', {
       level,
@@ -61,7 +81,7 @@ export default function JLPTMockTestScreen({ route, navigation }) {
       userAnswers: answers,
       correctCount,
       totalCount: testQuestions.length,
-      timeSpent: 900 - secondsRemaining,
+      timeSpent: 1200 - secondsRemaining,
     });
   };
 
@@ -83,12 +103,22 @@ export default function JLPTMockTestScreen({ route, navigation }) {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  if (questions.length === 0) return null;
+  if (loading || questions.length === 0) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#2563eb" />
+          <Text style={{ marginTop: 12, color: '#64748b' }}>Menyiapkan simulasi ujian {level}...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const currentQ = questions[currentIndex];
   const selectedOpt = userAnswers[currentIndex];
 
   const playAudio = (text) => {
+    Speech.stop();
     Speech.speak(text, { language: 'ja-JP', pitch: 1.0, rate: 0.85 });
   };
 
@@ -142,32 +172,22 @@ export default function JLPTMockTestScreen({ route, navigation }) {
           <Text style={styles.secTypeText}>{currentQ.section.toUpperCase()}</Text>
         </View>
 
-        {currentQ.instruction ? (
-          <Text style={styles.instructionText}>{currentQ.instruction}</Text>
-        ) : null}
-
-        {currentQ.passage ? (
-          <View style={styles.passageCard}>
-            <Text style={styles.passageText}>{currentQ.passage}</Text>
-          </View>
-        ) : null}
-
-        {currentQ.audioScript ? (
+        {currentQ.section === 'choukai' && (
           <View style={styles.audioCard}>
-            <Text style={styles.audioPrompt}>{currentQ.displayPrompt || 'Dengarkan audio berikut:'}</Text>
+            <Text style={styles.audioPrompt}>Dengarkan percakapan berikut:</Text>
             <TouchableOpacity
               style={styles.audioPlayBtn}
-              onPress={() => playAudio(currentQ.audioScript)}
+              onPress={() => playAudio(currentQ.audioScript || currentQ.questionText || currentQ.question)}
             >
               <Text style={styles.audioIcon}>🎧</Text>
               <Text style={styles.audioPlayText}>Putar Audio Percakapan</Text>
             </TouchableOpacity>
           </View>
-        ) : null}
+        )}
 
         <View style={styles.questionCard}>
           <Text style={styles.questionText}>
-            {currentIndex + 1}. {currentQ.question}
+            {currentIndex + 1}. {currentQ.questionText || currentQ.question}
           </Text>
         </View>
 

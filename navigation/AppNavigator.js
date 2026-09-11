@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, StyleSheet } from 'react-native';
+import { Text, StyleSheet, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -11,11 +11,16 @@ import FlashcardScreen from '../screens/FlashcardScreen';
 import QuizSetupScreen from '../screens/QuizSetupScreen';
 import QuizScreen from '../screens/QuizScreen';
 import ProgressScreen from '../screens/ProgressScreen';
+import KanaPracticeScreen from '../screens/KanaPracticeScreen';
+import KatakanaWordsScreen from '../screens/KatakanaWordsScreen';
 
 // Kotoba Screens
 import KotobaListScreen from '../screens/Kotoba/KotobaListScreen';
 import KotobaDetailScreen from '../screens/Kotoba/KotobaDetailScreen';
 import KotobaFlashcardScreen from '../screens/Kotoba/KotobaFlashcardScreen';
+import MinnaChapterDetailScreen from '../screens/Kotoba/MinnaChapterDetailScreen';
+import MinnaFlashcardScreen from '../screens/Kotoba/MinnaFlashcardScreen';
+import MinnaQuizScreen from '../screens/Kotoba/MinnaQuizScreen';
 
 // JLPT Screens
 import JLPTHomeScreen from '../screens/JLPT/JLPTHomeScreen';
@@ -33,6 +38,8 @@ function KanaStack() {
       <Stack.Screen name="HomeMain" component={HomeScreen} />
       <Stack.Screen name="SessionSetup" component={SessionSetupScreen} />
       <Stack.Screen name="Flashcard" component={FlashcardScreen} />
+      <Stack.Screen name="KanaPractice" component={KanaPracticeScreen} />
+      <Stack.Screen name="KatakanaWords" component={KatakanaWordsScreen} />
       <Stack.Screen name="QuizSetup" component={QuizSetupScreen} />
       <Stack.Screen name="QuizPlay" component={QuizScreen} />
       <Stack.Screen name="KotobaDetail" component={KotobaDetailScreen} />
@@ -46,6 +53,9 @@ function KotobaStack() {
       <Stack.Screen name="KotobaList" component={KotobaListScreen} />
       <Stack.Screen name="KotobaDetail" component={KotobaDetailScreen} />
       <Stack.Screen name="KotobaFlashcard" component={KotobaFlashcardScreen} />
+      <Stack.Screen name="MinnaChapterDetail" component={MinnaChapterDetailScreen} />
+      <Stack.Screen name="MinnaFlashcard" component={MinnaFlashcardScreen} />
+      <Stack.Screen name="MinnaQuiz" component={MinnaQuizScreen} />
     </Stack.Navigator>
   );
 }
@@ -99,9 +109,9 @@ export default function AppNavigator() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    height: 60,
-    paddingBottom: 8,
-    paddingTop: 6,
+    height: Platform.OS === 'ios' ? 62 : 56,
+    paddingBottom: Platform.OS === 'ios' ? 12 : 6,
+    paddingTop: 4,
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#f1f5f9',
@@ -116,3 +126,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+

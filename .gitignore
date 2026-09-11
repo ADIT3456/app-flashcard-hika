@@ -20,6 +20,7 @@ android/app/.cxx/
 # Generated APK & AAB Files
 *.apk
 *.aab
+build-apks/
 android/app/build/outputs/
 
 # Environment Variables & Private Files

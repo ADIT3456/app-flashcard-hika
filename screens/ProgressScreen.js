@@ -1,35 +1,41 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, Alert, FlatList,
+  ScrollView, Alert, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import * as Speech from 'expo-speech';
-import hiraganaData from '../data/hiragana';
-import katakanaData from '../data/katakana';
-import { loadProgress, getMasteryLevel, resetProgress, MASTERY_CONFIG } from '../utils/mastery';
+import { getCharacters, getProgressMap, resetDatabaseProgress } from '../db';
+import { MASTERY_CONFIG, getMasteryLevel } from '../utils/mastery';
 
 export default function ProgressScreen({ navigation }) {
   const isFocused = useIsFocused();
   const [filter, setFilter] = useState('all'); // 'all' | 'hiragana' | 'katakana'
+  const [allItems, setAllItems] = useState([]);
   const [progressMap, setProgressMap] = useState({});
+  const [loading, setLoading] = useState(true);
 
-  const refreshData = () => {
-    loadProgress().then((data) => setProgressMap(data || {}));
+  const refreshData = async () => {
+    try {
+      const [items, pMap] = await Promise.all([
+        getCharacters(filter),
+        getProgressMap('kana'),
+      ]);
+      setAllItems(items);
+      setProgressMap(pMap || {});
+    } catch (err) {
+      console.warn('Error loading progress:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     if (isFocused) {
       refreshData();
     }
-  }, [isFocused]);
-
-  const allItems = useMemo(() => {
-    if (filter === 'hiragana') return hiraganaData;
-    if (filter === 'katakana') return katakanaData;
-    return [...hiraganaData, ...katakanaData];
-  }, [filter]);
+  }, [isFocused, filter]);
 
   // Calculate summary stats
   const stats = useMemo(() => {
@@ -38,9 +44,9 @@ export default function ProgressScreen({ navigation }) {
     let unlearned = 0;
 
     allItems.forEach((item) => {
-      const lvl = getMasteryLevel(progressMap[item.key]);
-      if (lvl === 'mastered') mastered++;
-      else if (lvl === 'learning') learning++;
+      const status = progressMap[item.key]?.status || 'new';
+      if (status === 'mastered') mastered++;
+      else if (status === 'learning') learning++;
       else unlearned++;
     });
 
@@ -59,7 +65,7 @@ export default function ProgressScreen({ navigation }) {
           text: 'Reset',
           style: 'destructive',
           onPress: async () => {
-            await resetProgress();
+            await resetDatabaseProgress('kana');
             refreshData();
           },
         },
@@ -135,8 +141,8 @@ export default function ProgressScreen({ navigation }) {
 
         <View style={styles.charGrid}>
           {allItems.map((item) => {
-            const level = getMasteryLevel(progressMap[item.key]);
-            const config = MASTERY_CONFIG[level];
+            const level = progressMap[item.key]?.mastery || getMasteryLevel(progressMap[item.key]) || 'unlearned';
+            const config = MASTERY_CONFIG[level] || MASTERY_CONFIG.unlearned;
             const itemStat = progressMap[item.key] || { attempts: 0, streak: 0 };
 
             return (
